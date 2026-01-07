@@ -1,5 +1,7 @@
 // SlopSearch Content Script
-// Google ve Bing arama sonuçlarında çalışır
+// Works on Google and Bing search results
+
+console.log('🔍 SlopSearch content script loaded!')
 
 interface BlocklistData {
   sites: string[]
@@ -9,7 +11,7 @@ interface BlocklistData {
 let blocklist: string[] = []
 let isEnabled = true
 
-// Blocklist'i background'dan al
+// Get blocklist from background
 async function loadBlocklist(): Promise<void> {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage({ type: 'GET_BLOCKLIST' }, (response: BlocklistData) => {
@@ -22,7 +24,7 @@ async function loadBlocklist(): Promise<void> {
   })
 }
 
-// Domain'in engellenip engellenmediğini kontrol et
+// Check if domain is blocked
 function isBlocked(url: string): boolean {
   if (!isEnabled) return false
   try {
@@ -35,7 +37,7 @@ function isBlocked(url: string): boolean {
   }
 }
 
-// URL'den domain çıkar
+// Extract domain from URL
 function extractDomain(url: string): string {
   try {
     return new URL(url).hostname.replace('www.', '')
@@ -44,33 +46,75 @@ function extractDomain(url: string): string {
   }
 }
 
-// Google arama sonuçlarını işle
+// Process Google search results
 function processGoogleResults(): void {
-  const results = document.querySelectorAll('div.g')
+  // Google's main search result links: links with jsname="UWckNb"
+  const links = document.querySelectorAll('a[jsname="UWckNb"]') as NodeListOf<HTMLAnchorElement>
 
-  results.forEach((result) => {
-    const link = result.querySelector('a[href^="http"]') as HTMLAnchorElement
-    if (!link) return
+  links.forEach((link) => {
+    if (!link.href.startsWith('http')) return
+
+    // Skip Google's own links
+    if (link.href.includes('google.com')) return
 
     const url = link.href
     const domain = extractDomain(url)
+    if (!domain) return
 
-    // Eğer zaten işlendiyse atla
-    if (result.getAttribute('data-slopsearch-processed')) return
-    result.setAttribute('data-slopsearch-processed', 'true')
+    // Find the closest parent container
+    let container = link.closest('[data-hveid]') || link.parentElement?.parentElement?.parentElement
+    if (!container) return
 
-    // Engelli mi kontrol et
+    // Skip Google image carousel (not a search result)
+    if (container.closest('[data-lpage]') || container.closest('#imagebox_bigimages')) return
+
+    // Skip results without h3 heading (thumbnails, snippets, etc.)
+    if (!container.querySelector('h3')) return
+
+    // Skip if already processed
+    if (link.getAttribute('data-slopsearch-processed')) return
+    link.setAttribute('data-slopsearch-processed', 'true')
+
+    // Check if blocked
     if (isBlocked(url)) {
-      hideResult(result as HTMLElement, domain)
+      hideResult(container as HTMLElement, domain)
       return
     }
 
-    // Block butonu ekle
-    addBlockButton(result as HTMLElement, domain)
+    // Add block button to top-right corner of container
+    if (!container.querySelector('.slopsearch-block-btn')) {
+      addBlockButtonToContainer(container as HTMLElement, domain)
+    }
   })
 }
 
-// Bing arama sonuçlarını işle
+// Add block button to container (top-right corner)
+function addBlockButtonToContainer(container: HTMLElement, domain: string): void {
+  // Make container relative if static
+  const computedStyle = window.getComputedStyle(container)
+  if (computedStyle.position === 'static') {
+    (container as HTMLElement).style.position = 'relative'
+  }
+
+  const btn = document.createElement('button')
+  btn.className = 'slopsearch-block-btn'
+  btn.textContent = '🚫'
+  btn.title = `Block ${domain}`
+
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    chrome.runtime.sendMessage({ type: 'BLOCK_SITE', domain }, () => {
+      blocklist.push(domain)
+      hideResult(container, domain)
+    })
+  })
+
+  container.appendChild(btn)
+}
+
+// Process Bing search results
 function processBingResults(): void {
   const results = document.querySelectorAll('li.b_algo')
 
@@ -93,16 +137,16 @@ function processBingResults(): void {
   })
 }
 
-// Sonucu gizle
+// Hide result
 function hideResult(element: HTMLElement, domain: string): void {
   element.style.display = 'none'
 
-  // Gizlendi bilgisi ekle (opsiyonel göster butonu ile)
+  // Add hidden notice with optional show button
   const notice = document.createElement('div')
   notice.className = 'slopsearch-hidden-notice'
   notice.innerHTML = `
-    <span>🚫 ${domain} engellendi</span>
-    <button class="slopsearch-show-btn">Göster</button>
+    <span>🚫 ${domain} blocked</span>
+    <button class="slopsearch-show-btn">Show</button>
   `
 
   notice.querySelector('.slopsearch-show-btn')?.addEventListener('click', () => {
@@ -113,16 +157,16 @@ function hideResult(element: HTMLElement, domain: string): void {
   element.parentNode?.insertBefore(notice, element)
 }
 
-// Block butonu ekle
+// Add block button
 function addBlockButton(element: HTMLElement, domain: string): void {
-  // Container bul veya oluştur
+  // Find or create container
   const citeElement = element.querySelector('cite')
   if (!citeElement) return
 
   const btn = document.createElement('button')
   btn.className = 'slopsearch-block-btn'
   btn.textContent = '🚫'
-  btn.title = `${domain} sitesini engelle`
+  btn.title = `Block ${domain}`
 
   btn.addEventListener('click', async (e) => {
     e.preventDefault()
@@ -137,7 +181,7 @@ function addBlockButton(element: HTMLElement, domain: string): void {
   citeElement.parentNode?.insertBefore(btn, citeElement.nextSibling)
 }
 
-// Ana işlem
+// Main process
 async function init(): Promise<void> {
   await loadBlocklist()
 
@@ -147,10 +191,10 @@ async function init(): Promise<void> {
   const processResults = isGoogle ? processGoogleResults : isBing ? processBingResults : null
 
   if (processResults) {
-    // İlk işlem
+    // Initial process
     processResults()
 
-    // DOM değişikliklerini izle (infinite scroll, lazy load için)
+    // Watch for DOM changes (infinite scroll, lazy load)
     const observer = new MutationObserver(() => {
       processResults()
     })
@@ -162,11 +206,11 @@ async function init(): Promise<void> {
   }
 }
 
-// Storage değişikliklerini dinle
+// Listen for storage changes
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.blockedSites || changes.communitySites || changes.isEnabled) {
     loadBlocklist().then(() => {
-      // Sayfayı yeniden işle
+      // Re-process the page
       document.querySelectorAll('[data-slopsearch-processed]').forEach((el) => {
         el.removeAttribute('data-slopsearch-processed')
       })
@@ -182,5 +226,5 @@ chrome.storage.onChanged.addListener((changes) => {
   }
 })
 
-// Başlat
+// Start
 init()

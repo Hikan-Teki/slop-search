@@ -2,17 +2,17 @@
 
 const API_URL = 'https://api.slopsearch.deadnetguard.com'
 
-// Extension kurulduğunda
+// When extension is installed
 chrome.runtime.onInstalled.addListener(async () => {
-  console.log('SlopSearch kuruldu!')
+  console.log('SlopSearch installed!')
 
-  // Varsayılan ayarları kaydet
+  // Save default settings
   await chrome.storage.local.set({
     isEnabled: true,
     blockedSites: [],
   })
 
-  // İlk blocklist'i çek
+  // Fetch initial blocklist
   try {
     const response = await fetch(`${API_URL}/api/blocklist`)
     const data = await response.json()
@@ -20,11 +20,11 @@ chrome.runtime.onInstalled.addListener(async () => {
       await chrome.storage.local.set({ communitySites: data.sites })
     }
   } catch (error) {
-    console.error('Blocklist çekilemedi:', error)
+    console.error('Failed to fetch blocklist:', error)
   }
 })
 
-// Content script'ten gelen mesajları dinle
+// Listen to messages from content script
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'GET_BLOCKLIST') {
     chrome.storage.local.get(['blockedSites', 'communitySites', 'isEnabled']).then((data) => {
@@ -48,7 +48,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sites.push(domain)
         await chrome.storage.local.set({ blockedSites: sites })
 
-        // API'ye raporla
+        // Report to API
         try {
           await fetch(`${API_URL}/api/report`, {
             method: 'POST',
@@ -56,7 +56,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             body: JSON.stringify({ domain }),
           })
         } catch {
-          // Sessizce başarısız ol
+          // Silently fail
         }
       }
       sendResponse({ success: true })
@@ -75,7 +75,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 })
 
-// Periyodik olarak topluluk listesini güncelle (her 6 saatte bir)
+// Periodically update community list (every 6 hours)
 chrome.alarms.create('updateBlocklist', { periodInMinutes: 360 })
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
@@ -87,7 +87,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
         await chrome.storage.local.set({ communitySites: data.sites })
       }
     } catch (error) {
-      console.error('Blocklist güncellenemedi:', error)
+      console.error('Failed to update blocklist:', error)
     }
   }
 })

@@ -1,21 +1,24 @@
 /* SlopSearch Content Script Styles */
 
 .slopsearch-block-btn {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  margin-left: 8px;
+  width: 24px;
+  height: 24px;
   padding: 0;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
+  border: 1px solid #ddd;
+  border-radius: 50%;
+  background: #fff;
   cursor: pointer;
-  opacity: 0.5;
-  transition: opacity 0.2s, transform 0.2s;
+  opacity: 0.7;
+  transition: opacity 0.2s, transform 0.2s, background 0.2s, box-shadow 0.2s;
   font-size: 12px;
-  vertical-align: middle;
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1000;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .slopsearch-block-btn:hover {
@@ -60,7 +63,7 @@
   border-color: #666;
 }
 
-/* Dark mode uyumlu */
+/* Dark mode compatible */
 @media (prefers-color-scheme: light) {
   .slopsearch-hidden-notice {
     background: #f5f5f5;
