@@ -4,18 +4,47 @@ const { checkAutoBan } = require('./blocklist')
 
 const router = express.Router()
 
+// Domain validation regex - allows subdomains, TLDs, no protocol/path
+const DOMAIN_REGEX = /^(?!-)[a-zA-Z0-9-]{1,63}(?<!-)(\.[a-zA-Z0-9-]{1,63})*\.[a-zA-Z]{2,}$/
+
+// Validate and clean domain
+function validateDomain(domain) {
+  if (!domain || typeof domain !== 'string') return null
+
+  // Remove protocol if present
+  let clean = domain.replace(/^https?:\/\//, '')
+  // Remove path, query, fragment
+  clean = clean.split('/')[0].split('?')[0].split('#')[0]
+  // Remove www prefix and lowercase
+  clean = clean.toLowerCase().replace(/^www\./, '').trim()
+
+  // Check length and format
+  if (clean.length > 253 || !DOMAIN_REGEX.test(clean)) return null
+
+  return clean
+}
+
 // POST /api/report - Report a site
 router.post('/', async (req, res) => {
   try {
     const { domain, reason, url } = req.body
     const fingerprint = req.headers['x-fingerprint'] || req.ip
 
-    if (!domain) {
-      return res.status(400).json({ error: 'Domain required' })
+    // Validate domain
+    const cleanDomain = validateDomain(domain)
+    if (!cleanDomain) {
+      return res.status(400).json({ error: 'Invalid domain format' })
     }
 
-    // Clean domain
-    const cleanDomain = domain.toLowerCase().replace(/^www\./, '').trim()
+    // Validate reason length
+    if (reason && (typeof reason !== 'string' || reason.length > 500)) {
+      return res.status(400).json({ error: 'Reason too long (max 500 chars)' })
+    }
+
+    // Validate URL length
+    if (url && (typeof url !== 'string' || url.length > 2000)) {
+      return res.status(400).json({ error: 'URL too long (max 2000 chars)' })
+    }
 
     // Find or create site
     const existingSite = await prisma.blockedSite.findUnique({

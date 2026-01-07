@@ -1,8 +1,6 @@
 // SlopSearch Content Script
 // Works on Google and Bing search results
 
-console.log('🔍 SlopSearch content script loaded!')
-
 interface BlocklistData {
   sites: string[]
   isEnabled: boolean
@@ -24,14 +22,16 @@ async function loadBlocklist(): Promise<void> {
   })
 }
 
-// Check if domain is blocked
+// Check if domain is blocked (exact match or subdomain)
 function isBlocked(url: string): boolean {
   if (!isEnabled) return false
   try {
-    const domain = new URL(url).hostname.replace('www.', '')
-    return blocklist.some(
-      (blocked) => domain.includes(blocked) || blocked.includes(domain)
-    )
+    const domain = new URL(url).hostname.replace(/^www\./, '').toLowerCase()
+    return blocklist.some((blocked) => {
+      const blockedClean = blocked.toLowerCase()
+      // Exact match or subdomain match (e.g., blocked "example.com" matches "sub.example.com")
+      return domain === blockedClean || domain.endsWith('.' + blockedClean)
+    })
   } catch {
     return false
   }
@@ -137,23 +137,33 @@ function processBingResults(): void {
   })
 }
 
+// Sanitize domain for display (prevent XSS)
+function sanitizeDomain(domain: string): string {
+  // Only allow valid domain characters
+  return domain.replace(/[^a-zA-Z0-9.-]/g, '')
+}
+
 // Hide result
 function hideResult(element: HTMLElement, domain: string): void {
   element.style.display = 'none'
 
-  // Add hidden notice with optional show button
+  // Add hidden notice with optional show button (using safe DOM API)
   const notice = document.createElement('div')
   notice.className = 'slopsearch-hidden-notice'
-  notice.innerHTML = `
-    <span>🚫 ${domain} blocked</span>
-    <button class="slopsearch-show-btn">Show</button>
-  `
 
-  notice.querySelector('.slopsearch-show-btn')?.addEventListener('click', () => {
+  const span = document.createElement('span')
+  span.textContent = `🚫 ${sanitizeDomain(domain)} blocked`
+
+  const showBtn = document.createElement('button')
+  showBtn.className = 'slopsearch-show-btn'
+  showBtn.textContent = 'Show'
+  showBtn.addEventListener('click', () => {
     element.style.display = ''
     notice.remove()
   })
 
+  notice.appendChild(span)
+  notice.appendChild(showBtn)
   element.parentNode?.insertBefore(notice, element)
 }
 

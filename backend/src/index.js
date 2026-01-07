@@ -92,7 +92,7 @@ app.use(cors({
       return callback(null, true)
     }
 
-    callback(null, true) // Allow all for now
+    callback(new Error('Not allowed by CORS'))
   },
   credentials: true
 }))

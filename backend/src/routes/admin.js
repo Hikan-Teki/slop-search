@@ -104,6 +104,7 @@ router.get('/verify', requireAdmin, (_req, res) => {
 })
 
 // POST /api/admin/setup - Create initial admin (only if no admins exist)
+// Uses transaction to prevent race condition
 router.post('/setup', async (req, res) => {
   try {
     const { username, password } = req.body
@@ -112,19 +113,32 @@ router.post('/setup', async (req, res) => {
       return res.status(400).json({ error: 'Username (min 3 chars) and password (min 8 chars) required' })
     }
 
-    const adminCount = await prisma.admin.count()
-    if (adminCount > 0) {
-      return res.status(400).json({ error: 'Admin already exists' })
+    // Validate username format
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      return res.status(400).json({ error: 'Username can only contain letters, numbers, and underscores' })
     }
 
     const hashedPassword = await hashPassword(password)
-    await prisma.admin.create({
-      data: { username, password: hashedPassword }
+
+    // Use transaction with serializable isolation to prevent race condition
+    const result = await prisma.$transaction(async (tx) => {
+      const adminCount = await tx.admin.count()
+      if (adminCount > 0) {
+        throw new Error('ADMIN_EXISTS')
+      }
+
+      return tx.admin.create({
+        data: { username, password: hashedPassword }
+      })
+    }, {
+      isolationLevel: 'Serializable'
     })
 
     res.json({ success: true, message: 'Admin created' })
   } catch (error) {
-    console.error('Setup error:', error)
+    if (error.message === 'ADMIN_EXISTS') {
+      return res.status(400).json({ error: 'Admin already exists' })
+    }
     res.status(500).json({ error: 'Setup failed' })
   }
 })
