@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model BlockedSite {
+  id          String   @id @default(cuid())
+  domain      String   @unique
+  pattern     String?
+  reason      String?
+  reportCount Int      @default(1)
+  upvotes     Int      @default(0)
+  downvotes   Int      @default(0)
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  reports     Report[]
+  votes       Vote[]
+}
+
+model Report {
+  id          String      @id @default(cuid())
+  siteId      String
+  site        BlockedSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  fingerprint String
+  reason      String?
+  url         String?
+  createdAt   DateTime    @default(now())
+
+  @@index([siteId])
+  @@index([fingerprint])
+}
+
+model Vote {
+  id          String      @id @default(cuid())
+  siteId      String
+  site        BlockedSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  fingerprint String
+  isUpvote    Boolean
+  createdAt   DateTime    @default(now())
+
+  @@unique([siteId, fingerprint])
+  @@index([siteId])
+}

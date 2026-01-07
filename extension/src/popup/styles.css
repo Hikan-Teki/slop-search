@@ -1,0 +1,147 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #0a0a0a;
+  color: #fff;
+  min-width: 280px;
+}
+
+.popup-container {
+  padding: 16px;
+}
+
+.popup-header {
+  text-align: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #333;
+}
+
+.popup-header h1 {
+  font-size: 24px;
+  color: #ff3333;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.tagline {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+.popup-main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.toggle-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 26px;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #333;
+  transition: 0.3s;
+  border-radius: 26px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #fff;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #ff3333;
+}
+
+input:checked + .slider:before {
+  transform: translateX(24px);
+}
+
+.toggle-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.stats {
+  display: flex;
+  justify-content: center;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 12px 24px;
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.stat-value {
+  display: block;
+  font-size: 28px;
+  font-weight: bold;
+  color: #ff3333;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #888;
+}
+
+.popup-footer {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #333;
+  text-align: center;
+}
+
+.popup-footer a {
+  color: #888;
+  text-decoration: none;
+  font-size: 11px;
+}
+
+.popup-footer a:hover {
+  color: #ff3333;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px 0;
+  color: #888;
+}

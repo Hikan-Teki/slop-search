@@ -1,0 +1,81 @@
+/* SlopSearch Content Script Styles */
+
+.slopsearch-block-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.2s, transform 0.2s;
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+.slopsearch-block-btn:hover {
+  opacity: 1;
+  transform: scale(1.2);
+  background: rgba(255, 0, 0, 0.1);
+}
+
+.slopsearch-hidden-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin: 8px 0;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #888;
+  font-size: 13px;
+}
+
+.slopsearch-hidden-notice span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.slopsearch-show-btn {
+  padding: 4px 10px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.slopsearch-show-btn:hover {
+  background: #333;
+  color: #fff;
+  border-color: #666;
+}
+
+/* Dark mode uyumlu */
+@media (prefers-color-scheme: light) {
+  .slopsearch-hidden-notice {
+    background: #f5f5f5;
+    border-color: #ddd;
+    color: #666;
+  }
+
+  .slopsearch-show-btn {
+    border-color: #ccc;
+    color: #666;
+  }
+
+  .slopsearch-show-btn:hover {
+    background: #eee;
+    color: #333;
+    border-color: #999;
+  }
+}
