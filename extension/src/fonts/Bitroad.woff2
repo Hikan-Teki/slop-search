@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeadNetGuard - Kill AI Slop</title>
+  <meta name="description" content="The internet is dying. AI slop is killing it. We're fighting back. DeadNetGuard blocks AI-generated garbage from your YouTube feed.">
+  <link rel="icon" type="image/png" href="logo.png">
+  <style>
+    /* Bitroad Y2K Pixel Font */
+    @font-face {
+      font-family: 'Bitroad';
+      src: url('Bitroad-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Bitroad';
+      src: url('Bitroad-Italic.woff2') format('woff2');
+      font-weight: 400;
+      font-style: italic;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Bitroad Mono';
+      src: url('BitroadMono-RegularMono.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --black: #0a0a0a;
+      --darker: #111111;
+      --dark: #1a1a1a;
+      --red: #dc2626;
+      --red-bright: #ef4444;
+      --red-glow: rgba(220, 38, 38, 0.4);
+      --white: #fafafa;
+      --gray: #888888;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Bitroad', 'Space Grotesk', sans-serif;
+      background: var(--black);
+      color: var(--white);
+      line-height: 1.8;
+      overflow-x: hidden;
+      font-size: 16px;
+    }
+
+    /* Glitch animation */
+    @keyframes glitch {
+      0%, 100% { text-shadow: -2px 0 var(--red), 2px 0 cyan; }
+      25% { text-shadow: 2px 0 var(--red), -2px 0 cyan; }
+      50% { text-shadow: -1px 0 var(--red), 1px 0 cyan; }
+      75% { text-shadow: 1px 0 var(--red), -1px 0 cyan; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 20px var(--red-glow); }
+      50% { box-shadow: 0 0 40px var(--red-glow), 0 0 60px var(--red-glow); }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    @keyframes scan {
+      0% { top: 0; }
+      100% { top: 100%; }
+    }
+
+    /* Hero Section */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background:
+        radial-gradient(circle at 50% 50%, var(--red-glow) 0%, transparent 50%),
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.03) 2px, rgba(255,255,255,0.03) 4px);
+      pointer-events: none;
+    }
+
+    .hero::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--red), transparent);
+      animation: scan 3s linear infinite;
+      opacity: 0.3;
+    }
+
+    .logo {
+      width: 280px;
+      height: 280px;
+      margin-bottom: 2rem;
+      animation: float 4s ease-in-out infinite, pulse 2s ease-in-out infinite;
+      filter: drop-shadow(0 0 30px var(--red-glow));
+    }
+
+    .hero h1 {
+      font-size: clamp(2rem, 6vw, 4rem);
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 1rem;
+      animation: glitch 0.5s ease-in-out infinite;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+    }
+
+    .hero h1 span {
+      color: var(--red);
+    }
+
+    .tagline {
+      font-size: clamp(1rem, 2.5vw, 1.5rem);
+      color: var(--gray);
+      text-align: center;
+      max-width: 600px;
+      margin-bottom: 2rem;
+    }
+
+    .tagline strong {
+      color: var(--red-bright);
+    }
+
+    .cta-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--red);
+      color: var(--white);
+      padding: 1rem 2.5rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+      text-decoration: none;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      border: 2px solid var(--red);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-button::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .cta-button:hover {
+      background: transparent;
+      box-shadow: 0 0 30px var(--red-glow);
+      transform: scale(1.05);
+    }
+
+    .cta-button:hover::before {
+      left: 100%;
+    }
+
+    /* Manifesto Section */
+    .manifesto {
+      padding: 6rem 2rem;
+      background: var(--darker);
+      position: relative;
+    }
+
+    .manifesto::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--red), transparent);
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .section-title {
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
+      font-weight: 700;
+      color: var(--red);
+      margin-bottom: 2rem;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+    }
+
+    .manifesto-text {
+      font-size: 1.2rem;
+      line-height: 1.9;
+      color: var(--white);
+    }
+
+    .manifesto-text p {
+      margin-bottom: 1.5rem;
+    }
+
+    .manifesto-text strong {
+      color: var(--red-bright);
+    }
+
+    .manifesto-text .highlight {
+      background: linear-gradient(90deg, var(--red), var(--red-bright));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 700;
+    }
+
+    /* Features Section */
+    .features {
+      padding: 6rem 2rem;
+      background: var(--black);
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 2rem;
+      margin-top: 3rem;
+    }
+
+    .feature-card {
+      background: var(--dark);
+      padding: 2rem;
+      border: 1px solid #222;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--red);
+      transform: scaleY(0);
+      transition: transform 0.3s ease;
+    }
+
+    .feature-card:hover {
+      border-color: var(--red);
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .feature-card:hover::before {
+      transform: scaleY(1);
+    }
+
+    .feature-icon {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .feature-card h3 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .feature-card p {
+      color: var(--gray);
+      font-size: 0.95rem;
+    }
+
+    /* Ecosystem Section */
+    .ecosystem {
+      padding: 6rem 2rem;
+      background: var(--black);
+      position: relative;
+    }
+
+    .ecosystem::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--red), transparent);
+    }
+
+    .ecosystem-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+      margin-top: 3rem;
+    }
+
+    .ecosystem-card {
+      background: var(--dark);
+      padding: 2rem;
+      border: 1px solid #222;
+      position: relative;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+
+    .ecosystem-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: var(--red);
+      transform: scaleX(0);
+      transition: transform 0.3s ease;
+    }
+
+    .ecosystem-card:hover {
+      border-color: var(--red);
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px var(--red-glow);
+    }
+
+    .ecosystem-card:hover::before {
+      transform: scaleX(1);
+    }
+
+    .ecosystem-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .ecosystem-phase {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      padding: 0.25rem 0.75rem;
+      background: var(--red);
+      color: var(--white);
+    }
+
+    .ecosystem-phase.new {
+      background: linear-gradient(90deg, var(--red), #f97316);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .ecosystem-phase.coming {
+      background: #333;
+      color: var(--gray);
+    }
+
+    .ecosystem-icon {
+      font-size: 2rem;
+    }
+
+    .ecosystem-card h3 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--white);
+    }
+
+    .ecosystem-target {
+      font-size: 0.85rem;
+      color: var(--red-bright);
+      font-family: 'Bitroad Mono', monospace;
+      margin-bottom: 1rem;
+    }
+
+    .ecosystem-card p {
+      color: var(--gray);
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+    }
+
+    .ecosystem-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--red);
+      font-family: 'Bitroad Mono', monospace;
+      transition: color 0.3s ease;
+    }
+
+    .ecosystem-card:hover .ecosystem-link {
+      color: var(--red-bright);
+    }
+
+    .ecosystem-card.disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .ecosystem-card.disabled h3,
+    .ecosystem-card.disabled p {
+      color: var(--gray);
+    }
+
+    /* Banlist Section */
+    .banlist {
+      padding: 6rem 2rem;
+      background: var(--darker);
+      position: relative;
+    }
+
+    .banlist::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--red), transparent);
+    }
+
+    .banlist-stats {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      margin-bottom: 3rem;
+      flex-wrap: wrap;
+    }
+
+    .banlist-stat {
+      text-align: center;
+      padding: 1.5rem 2rem;
+      background: var(--dark);
+      border: 1px solid #222;
+      min-width: 150px;
+    }
+
+    .banlist-stat .number {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--red);
+      display: block;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+    }
+
+    .banlist-stat .label {
+      font-size: 0.85rem;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-family: 'Bitroad Mono', monospace;
+    }
+
+    .banlist-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+      max-height: 400px;
+      overflow-y: auto;
+      padding: 1rem;
+      background: var(--black);
+      border: 1px solid #222;
+    }
+
+    .banlist-grid::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .banlist-grid::-webkit-scrollbar-track {
+      background: var(--dark);
+    }
+
+    .banlist-grid::-webkit-scrollbar-thumb {
+      background: var(--red);
+    }
+
+    .banlist-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: var(--dark);
+      border-left: 3px solid var(--red);
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+    }
+
+    .banlist-item:hover {
+      background: #252525;
+      transform: translateX(5px);
+    }
+
+    .banlist-item .icon {
+      opacity: 0.5;
+    }
+
+    .banlist-item .name {
+      color: var(--white);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .banlist-loading {
+      text-align: center;
+      padding: 3rem;
+      color: var(--gray);
+      font-family: 'Bitroad Mono', monospace;
+    }
+
+    .banlist-loading::after {
+      content: '...';
+      animation: dots 1.5s infinite;
+    }
+
+    @keyframes dots {
+      0%, 20% { content: '.'; }
+      40% { content: '..'; }
+      60%, 100% { content: '...'; }
+    }
+
+    .banlist-empty {
+      text-align: center;
+      padding: 3rem;
+      color: var(--gray);
+    }
+
+    .banlist-footer {
+      margin-top: 2rem;
+      text-align: center;
+      font-family: 'Bitroad Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--gray);
+    }
+
+    /* Final CTA Section */
+    .final-cta {
+      padding: 6rem 2rem;
+      background: linear-gradient(180deg, var(--darker) 0%, var(--black) 100%);
+      text-align: center;
+      position: relative;
+    }
+
+    .final-cta h2 {
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      font-weight: 700;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+    }
+
+    .final-cta h2 span {
+      color: var(--red);
+    }
+
+    .final-cta .subtitle {
+      font-size: 1.2rem;
+      color: var(--gray);
+      margin-bottom: 2rem;
+      font-family: 'Bitroad Mono', monospace;
+    }
+
+    .warning-box {
+      background: rgba(220, 38, 38, 0.1);
+      border: 1px solid var(--red);
+      padding: 1.5rem 2rem;
+      max-width: 600px;
+      margin: 2rem auto;
+      font-family: 'Bitroad Mono', monospace;
+      font-size: 0.9rem;
+      text-align: left;
+    }
+
+    .warning-box::before {
+      content: '> ';
+      color: var(--red);
+    }
+
+    /* Footer */
+    footer {
+      padding: 2rem;
+      text-align: center;
+      border-top: 1px solid #222;
+      font-family: 'Bitroad Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--gray);
+    }
+
+    footer a {
+      color: var(--red);
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+
+    footer a:hover {
+      color: var(--red-bright);
+    }
+
+    .version {
+      margin-top: 0.5rem;
+      opacity: 0.5;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .logo {
+        width: 200px;
+        height: 200px;
+      }
+
+      .hero h1 {
+        letter-spacing: 2px;
+      }
+
+      .cta-button {
+        padding: 0.875rem 2rem;
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Hero Section -->
+  <section class="hero">
+    <img src="logo.png" alt="DeadNetGuard Logo" class="logo">
+    <h1>Dead<span>Net</span>Guard</h1>
+    <p class="tagline">
+      The internet is <strong>dying</strong>. AI slop is killing it.<br>
+      We're fighting back.
+    </p>
+    <a href="#install" class="cta-button">
+      <span>Install Extension</span>
+    </a>
+  </section>
+
+  <!-- Manifesto Section -->
+  <section class="manifesto">
+    <div class="container">
+      <h2 class="section-title">// The Dead Internet</h2>
+      <div class="manifesto-text">
+        <p>
+          You've felt it. Scrolling through YouTube, your feed filled with the same recycled garbage.
+          <strong>AI-generated faceless channels</strong> pumping out soulless content 24/7.
+          Reddit posts that feel... off. Comments that don't quite make sense.
+        </p>
+        <p>
+          The <span class="highlight">Dead Internet Theory</span> isn't just a conspiracy anymore.
+          It's happening right now. Bots creating content for bots, algorithms feeding algorithms,
+          while real human creativity drowns in an ocean of <strong>AI slop</strong>.
+        </p>
+        <p>
+          We're not going to sit and watch.<br>
+          <span class="highlight">DeadNetGuard is the first line of defense.</span>
+        </p>
+        <p>
+          This Chrome extension identifies and blocks AI-generated garbage channels from your YouTube feed.
+          No more robot voices reading Reddit threads. No more AI-animated "history" channels.
+          No more algorithmically-generated brain rot.
+        </p>
+        <p>
+          <strong>This is just the beginning.</strong> YouTube today. The entire internet tomorrow.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features">
+    <div class="container">
+      <h2 class="section-title">// Arsenal</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <h3>Instant Blocking</h3>
+          <p>One click to block any channel. Immediately purged from your feed. No mercy.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📱</div>
+          <h3>Shorts Protection</h3>
+          <p>Auto-skips blocked channels on YouTube Shorts. AI slop can't hide in vertical format.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">👥</div>
+          <h3>Community Blocklist</h3>
+          <p>Crowdsourced database of known AI slop channels. Updated by users like you.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <h3>Minimal Data</h3>
+          <p>We only collect channel reports you submit. No personal tracking. Your blocklist stays local.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Ecosystem Section -->
+  <section class="ecosystem">
+    <div class="container">
+      <h2 class="section-title">// Ecosystem</h2>
+      <div class="ecosystem-grid">
+        <!-- Phase 1: DeadNetGuard -->
+        <a href="#install" class="ecosystem-card">
+          <div class="ecosystem-header">
+            <span class="ecosystem-icon">🛡️</span>
+            <span class="ecosystem-phase">Phase 1</span>
+          </div>
+          <h3>DeadNetGuard</h3>
+          <div class="ecosystem-target">// YouTube</div>
+          <p>Purges AI slop channels from your YouTube feed. Instant blocking, community list, Shorts protection.</p>
+          <span class="ecosystem-link">→ Install</span>
+        </a>
+
+        <!-- Phase 2: SlopSearch -->
+        <a href="https://slopsearch.deadnetguard.com" target="_blank" class="ecosystem-card">
+          <div class="ecosystem-header">
+            <span class="ecosystem-icon">🔍</span>
+            <span class="ecosystem-phase new">Phase 2 - New</span>
+          </div>
+          <h3>SlopSearch</h3>
+          <div class="ecosystem-target">// Google & Bing</div>
+          <p>Filters AI slop sites from search results. Google and Bing support. Clean search experience.</p>
+          <span class="ecosystem-link">→ slopsearch.deadnetguard.com</span>
+        </a>
+
+        <!-- Phase 3: Coming Soon -->
+        <div class="ecosystem-card disabled">
+          <div class="ecosystem-header">
+            <span class="ecosystem-icon">🌐</span>
+            <span class="ecosystem-phase coming">Phase 3</span>
+          </div>
+          <h3>Coming Soon</h3>
+          <div class="ecosystem-target">// ???</div>
+          <p>More platforms, more protection. The dead internet won't win.</p>
+          <span class="ecosystem-link">→ Coming Soon</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Banlist Section -->
+  <section class="banlist">
+    <div class="container">
+      <h2 class="section-title">// Kill List</h2>
+      <div class="banlist-stats">
+        <div class="banlist-stat">
+          <span class="number" id="total-banned">-</span>
+          <span class="label">Channels Banned</span>
+        </div>
+        <div class="banlist-stat">
+          <span class="number" id="total-reports">-</span>
+          <span class="label">Total Reports</span>
+        </div>
+        <div class="banlist-stat">
+          <span class="number" id="total-votes">-</span>
+          <span class="label">Community Votes</span>
+        </div>
+      </div>
+      <div class="banlist-grid" id="banlist-grid">
+        <div class="banlist-loading">Loading kill list</div>
+      </div>
+      <p class="banlist-footer">
+        // These channels have been identified as AI slop by the community
+      </p>
+    </div>
+  </section>
+
+  <!-- Final CTA Section -->
+  <section class="final-cta" id="install">
+    <h2>Join The <span>Resistance</span></h2>
+    <p class="subtitle">// phase 1 youtube active | phase 2 slopsearch live</p>
+    <a href="#" class="cta-button">
+      Install for Chrome
+    </a>
+    <div class="warning-box">
+      Phase 1 (YouTube) active. Phase 2 (SlopSearch) live - cleaning AI slop from search results.
+      Phase 3 coming. The dead internet won't win.
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <p>
+      <a href="https://github.com/Hikan-Teki/deadnetguard" target="_blank">GitHub</a> ·
+      <a href="https://slopsearch.deadnetguard.com" target="_blank">SlopSearch</a> ·
+      <a href="https://github.com/Hikan-Teki/slop-search" target="_blank">SlopSearch GitHub</a> ·
+      <a href="privacy.html">Privacy Policy</a> ·
+      Built with rage against the machine
+    </p>
+    <p class="version">DeadNetGuard Ecosystem v1.0.0</p>
+  </footer>
+  <script>
+    const API_URL = 'https://api.deadnetguard.com';
+
+    async function loadBanlist() {
+      const grid = document.getElementById('banlist-grid');
+      const totalBanned = document.getElementById('total-banned');
+      const totalReports = document.getElementById('total-reports');
+      const totalVotes = document.getElementById('total-votes');
+
+      try {
+        // Fetch banlist and stats in parallel
+        const [banlistRes, statsRes] = await Promise.all([
+          fetch(`${API_URL}/api/banlist`),
+          fetch(`${API_URL}/api/stats`)
+        ]);
+
+        const banlistData = await banlistRes.json();
+        const stats = await statsRes.json();
+
+        // Extract channels array from response
+        const channels = banlistData.channels || [];
+
+        // Update stats
+        totalBanned.textContent = channels.length || '0';
+        totalReports.textContent = stats.totalReports || '0';
+        totalVotes.textContent = stats.totalVotes || '0';
+
+        // Render banlist
+        if (channels.length === 0) {
+          grid.innerHTML = '<div class="banlist-empty">No channels banned yet. Be the first to report AI slop!</div>';
+          return;
+        }
+
+        grid.innerHTML = channels.map(channel => `
+          <div class="banlist-item">
+            <span class="icon">🚫</span>
+            <span class="name" title="${escapeHtml(channel.name)}">${escapeHtml(channel.name)}</span>
+          </div>
+        `).join('');
+
+      } catch (error) {
+        console.error('Failed to load banlist:', error);
+        grid.innerHTML = '<div class="banlist-empty">Failed to load kill list. API might be down.</div>';
+        totalBanned.textContent = '?';
+        totalReports.textContent = '?';
+        totalVotes.textContent = '?';
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Load banlist when page loads
+    document.addEventListener('DOMContentLoaded', loadBanlist);
+  </script>
+</body>
+</html>
