@@ -1,16 +1,21 @@
 const express = require('express')
-const { PrismaClient } = require('@prisma/client')
+const { prisma } = require('../index')
+const { checkAutoBan } = require('./blocklist')
 
 const router = express.Router()
-const prisma = new PrismaClient()
 
-// Oy ver
+// POST /api/vote - Vote on a site
 router.post('/', async (req, res) => {
   try {
-    const { siteId, domain, isUpvote } = req.body
+    const { siteId, domain, value } = req.body // value: 1 (AI slop) or -1 (not AI slop)
     const fingerprint = req.headers['x-fingerprint'] || req.ip
 
-    // siteId veya domain ile site bul
+    // Validate vote value
+    if (value !== 1 && value !== -1) {
+      return res.status(400).json({ error: 'Invalid vote value. Use 1 (AI slop) or -1 (not AI slop)' })
+    }
+
+    // Find site by ID or domain
     let site
     if (siteId) {
       site = await prisma.blockedSite.findUnique({ where: { id: siteId } })
@@ -20,10 +25,10 @@ router.post('/', async (req, res) => {
     }
 
     if (!site) {
-      return res.status(404).json({ error: 'Site bulunamadı' })
+      return res.status(404).json({ error: 'Site not found' })
     }
 
-    // Daha önce oy kullanmış mı?
+    // Check for existing vote
     const existingVote = await prisma.vote.findUnique({
       where: {
         siteId_fingerprint: {
@@ -34,61 +39,64 @@ router.post('/', async (req, res) => {
     })
 
     if (existingVote) {
-      // Oy değiştir
-      if (existingVote.isUpvote === isUpvote) {
-        // Aynı oy, sil (toggle)
+      if (existingVote.value === value) {
+        // Same vote, remove it (toggle off)
         await prisma.vote.delete({ where: { id: existingVote.id } })
 
         await prisma.blockedSite.update({
           where: { id: site.id },
-          data: isUpvote
-            ? { upvotes: { decrement: 1 } }
-            : { downvotes: { decrement: 1 } },
+          data: { score: { decrement: value } },
         })
 
         return res.json({ success: true, action: 'removed' })
       }
 
-      // Farklı oy, güncelle
+      // Different vote, change it
       await prisma.vote.update({
         where: { id: existingVote.id },
-        data: { isUpvote },
+        data: { value },
       })
 
+      // Score change: remove old vote and add new vote
+      // If old was 1 and new is -1: score changes by -2
+      // If old was -1 and new is 1: score changes by +2
+      const scoreDelta = value - existingVote.value
       await prisma.blockedSite.update({
         where: { id: site.id },
-        data: isUpvote
-          ? { upvotes: { increment: 1 }, downvotes: { decrement: 1 } }
-          : { upvotes: { decrement: 1 }, downvotes: { increment: 1 } },
+        data: { score: { increment: scoreDelta } },
       })
+
+      // Check for auto-ban
+      await checkAutoBan(site.id)
 
       return res.json({ success: true, action: 'changed' })
     }
 
-    // Yeni oy
+    // New vote
     await prisma.vote.create({
       data: {
         siteId: site.id,
         fingerprint,
-        isUpvote,
+        value,
       },
     })
 
     await prisma.blockedSite.update({
       where: { id: site.id },
-      data: isUpvote
-        ? { upvotes: { increment: 1 } }
-        : { downvotes: { increment: 1 } },
+      data: { score: { increment: value } },
     })
+
+    // Check for auto-ban
+    await checkAutoBan(site.id)
 
     res.json({ success: true, action: 'created' })
   } catch (error) {
-    console.error('Vote hatası:', error)
-    res.status(500).json({ error: 'Oylama başarısız' })
+    console.error('Vote error:', error)
+    res.status(500).json({ error: 'Vote failed' })
   }
 })
 
-// Kullanıcının oylarını getir
+// GET /api/vote/my - Get user's votes
 router.get('/my', async (req, res) => {
   try {
     const fingerprint = req.headers['x-fingerprint'] || req.ip
@@ -99,8 +107,8 @@ router.get('/my', async (req, res) => {
         site: {
           select: {
             domain: true,
-            upvotes: true,
-            downvotes: true,
+            score: true,
+            isBanned: true,
           },
         },
       },
@@ -108,8 +116,8 @@ router.get('/my', async (req, res) => {
 
     res.json({ votes })
   } catch (error) {
-    console.error('My votes hatası:', error)
-    res.status(500).json({ error: 'Oylar alınamadı' })
+    console.error('My votes error:', error)
+    res.status(500).json({ error: 'Failed to fetch votes' })
   }
 })
 

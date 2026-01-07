@@ -1,29 +1,29 @@
 const express = require('express')
-const { PrismaClient } = require('@prisma/client')
+const { prisma } = require('../index')
+const { checkAutoBan } = require('./blocklist')
 
 const router = express.Router()
-const prisma = new PrismaClient()
 
-// Yeni site raporla
+// POST /api/report - Report a site
 router.post('/', async (req, res) => {
   try {
     const { domain, reason, url } = req.body
     const fingerprint = req.headers['x-fingerprint'] || req.ip
 
     if (!domain) {
-      return res.status(400).json({ error: 'Domain gerekli' })
+      return res.status(400).json({ error: 'Domain required' })
     }
 
-    // Domain'i temizle
+    // Clean domain
     const cleanDomain = domain.toLowerCase().replace(/^www\./, '').trim()
 
-    // Var olan siteyi bul veya oluştur
+    // Find or create site
     const existingSite = await prisma.blockedSite.findUnique({
       where: { domain: cleanDomain },
     })
 
     if (existingSite) {
-      // Bu kullanıcı daha önce raporlamış mı?
+      // Check if already reported by this user
       const existingReport = await prisma.report.findFirst({
         where: {
           siteId: existingSite.id,
@@ -32,10 +32,10 @@ router.post('/', async (req, res) => {
       })
 
       if (existingReport) {
-        return res.status(409).json({ error: 'Bu siteyi zaten raporladınız' })
+        return res.status(409).json({ error: 'You already reported this site' })
       }
 
-      // Yeni rapor ekle
+      // Add new report
       await prisma.report.create({
         data: {
           siteId: existingSite.id,
@@ -45,20 +45,23 @@ router.post('/', async (req, res) => {
         },
       })
 
-      // Report count'u artır
-      await prisma.blockedSite.update({
+      // Increment report count
+      const updated = await prisma.blockedSite.update({
         where: { id: existingSite.id },
         data: { reportCount: { increment: 1 } },
       })
 
+      // Check for auto-ban
+      await checkAutoBan(existingSite.id)
+
       return res.json({
         success: true,
-        message: 'Rapor eklendi',
-        reportCount: existingSite.reportCount + 1,
+        message: 'Report added',
+        reportCount: updated.reportCount,
       })
     }
 
-    // Yeni site oluştur
+    // Create new site
     const newSite = await prisma.blockedSite.create({
       data: {
         domain: cleanDomain,
@@ -75,16 +78,16 @@ router.post('/', async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Site raporlandı',
+      message: 'Site reported',
       id: newSite.id,
     })
   } catch (error) {
-    console.error('Report hatası:', error)
-    res.status(500).json({ error: 'Raporlama başarısız' })
+    console.error('Report error:', error)
+    res.status(500).json({ error: 'Report failed' })
   }
 })
 
-// Kullanıcının kendi raporlarını getir
+// GET /api/report/my - Get user's reports
 router.get('/my', async (req, res) => {
   try {
     const fingerprint = req.headers['x-fingerprint'] || req.ip
@@ -96,7 +99,7 @@ router.get('/my', async (req, res) => {
           select: {
             domain: true,
             reportCount: true,
-            isVerified: true,
+            isBanned: true,
           },
         },
       },
@@ -105,12 +108,12 @@ router.get('/my', async (req, res) => {
 
     res.json({ reports })
   } catch (error) {
-    console.error('My reports hatası:', error)
-    res.status(500).json({ error: 'Raporlar alınamadı' })
+    console.error('My reports error:', error)
+    res.status(500).json({ error: 'Failed to fetch reports' })
   }
 })
 
-// Raporu sil (sadece kendi raporunu)
+// DELETE /api/report/:id - Delete own report
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params
@@ -121,12 +124,12 @@ router.delete('/:id', async (req, res) => {
     })
 
     if (!report) {
-      return res.status(404).json({ error: 'Rapor bulunamadı' })
+      return res.status(404).json({ error: 'Report not found' })
     }
 
     await prisma.report.delete({ where: { id } })
 
-    // Report count'u azalt
+    // Decrement report count
     await prisma.blockedSite.update({
       where: { id: report.siteId },
       data: { reportCount: { decrement: 1 } },
@@ -134,8 +137,8 @@ router.delete('/:id', async (req, res) => {
 
     res.json({ success: true })
   } catch (error) {
-    console.error('Delete report hatası:', error)
-    res.status(500).json({ error: 'Silme başarısız' })
+    console.error('Delete report error:', error)
+    res.status(500).json({ error: 'Delete failed' })
   }
 })
 

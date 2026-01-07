@@ -1,60 +1,88 @@
 const express = require('express')
-const { PrismaClient } = require('@prisma/client')
+const { prisma } = require('../index')
 
 const router = express.Router()
-const prisma = new PrismaClient()
 
-// Topluluk engelleme listesini getir
-router.get('/', async (req, res) => {
+// Threshold for community auto-ban
+const BAN_THRESHOLD_REPORTS = 5
+const BAN_THRESHOLD_SCORE = 3
+
+// GET /api/blocklist - Get all banned sites (for extension)
+router.get('/', async (_req, res) => {
+  try {
+    const sites = await prisma.blockedSite.findMany({
+      where: { isBanned: true },
+      select: {
+        domain: true
+      }
+    })
+
+    res.json({
+      version: Date.now(),
+      count: sites.length,
+      sites: sites.map(s => s.domain)
+    })
+  } catch (error) {
+    console.error('Error fetching blocklist:', error)
+    res.status(500).json({ error: 'Failed to fetch blocklist' })
+  }
+})
+
+// GET /api/blocklist/version - Check if blocklist updated
+router.get('/version', async (_req, res) => {
+  try {
+    const latest = await prisma.blockedSite.findFirst({
+      where: { isBanned: true },
+      orderBy: { updatedAt: 'desc' },
+      select: { updatedAt: true }
+    })
+
+    res.json({
+      version: latest?.updatedAt?.getTime() || 0
+    })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch version' })
+  }
+})
+
+// GET /api/blocklist/pending - Get sites pending review
+router.get('/pending', async (_req, res) => {
   try {
     const sites = await prisma.blockedSite.findMany({
       where: {
-        OR: [
-          { isVerified: true },
-          { reportCount: { gte: 3 } }, // En az 3 rapor
-          { upvotes: { gte: 5 } }, // Veya 5 upvote
-        ],
+        isBanned: false,
+        reportCount: { gte: 1 }
       },
-      select: {
-        domain: true,
-        pattern: true,
-      },
-      orderBy: {
-        reportCount: 'desc',
-      },
+      orderBy: [
+        { score: 'desc' },
+        { reportCount: 'desc' }
+      ],
+      include: {
+        _count: {
+          select: { reports: true, votes: true }
+        }
+      }
     })
 
     res.json({
-      sites: sites.map(s => s.domain),
       count: sites.length,
+      sites: sites.map(site => ({
+        id: site.id,
+        domain: site.domain,
+        reason: site.reason,
+        reportCount: site.reportCount,
+        score: site.score,
+        reports: site._count.reports,
+        votes: site._count.votes,
+        createdAt: site.createdAt
+      }))
     })
   } catch (error) {
-    console.error('Blocklist getirme hatası:', error)
-    res.status(500).json({ error: 'Liste alınamadı' })
+    res.status(500).json({ error: 'Failed to fetch pending sites' })
   }
 })
 
-// İstatistikleri getir
-router.get('/stats', async (req, res) => {
-  try {
-    const totalSites = await prisma.blockedSite.count()
-    const verifiedSites = await prisma.blockedSite.count({
-      where: { isVerified: true },
-    })
-    const totalReports = await prisma.report.count()
-
-    res.json({
-      totalSites,
-      verifiedSites,
-      totalReports,
-    })
-  } catch (error) {
-    console.error('Stats hatası:', error)
-    res.status(500).json({ error: 'İstatistikler alınamadı' })
-  }
-})
-
-// Belirli bir domain'i kontrol et
+// GET /api/blocklist/check/:domain - Check if domain is blocked
 router.get('/check/:domain', async (req, res) => {
   try {
     const { domain } = req.params
@@ -64,9 +92,8 @@ router.get('/check/:domain', async (req, res) => {
       select: {
         domain: true,
         reportCount: true,
-        upvotes: true,
-        downvotes: true,
-        isVerified: true,
+        score: true,
+        isBanned: true,
       },
     })
 
@@ -74,16 +101,31 @@ router.get('/check/:domain', async (req, res) => {
       return res.json({ blocked: false })
     }
 
-    const isBlocked = site.isVerified || site.reportCount >= 3 || site.upvotes >= 5
-
     res.json({
-      blocked: isBlocked,
+      blocked: site.isBanned,
       ...site,
     })
   } catch (error) {
-    console.error('Check hatası:', error)
-    res.status(500).json({ error: 'Kontrol yapılamadı' })
+    res.status(500).json({ error: 'Check failed' })
   }
 })
 
+// Check if site should be auto-banned
+async function checkAutoBan(siteId) {
+  const site = await prisma.blockedSite.findUnique({
+    where: { id: siteId }
+  })
+
+  if (!site) return
+
+  if (site.reportCount >= BAN_THRESHOLD_REPORTS && site.score >= BAN_THRESHOLD_SCORE) {
+    await prisma.blockedSite.update({
+      where: { id: siteId },
+      data: { isBanned: true }
+    })
+    console.log(`Site ${site.domain} auto-banned (reports: ${site.reportCount}, score: ${site.score})`)
+  }
+}
+
 module.exports = router
+module.exports.checkAutoBan = checkAutoBan
