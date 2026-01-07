@@ -4,7 +4,7 @@ const express = require('express')
 const cors = require('cors')
 const helmet = require('helmet')
 const rateLimit = require('express-rate-limit')
-const { PrismaClient } = require('@prisma/client')
+const { prisma } = require('./prisma')
 
 const blocklistRoutes = require('./routes/blocklist')
 const reportRoutes = require('./routes/report')
@@ -18,10 +18,6 @@ const PORT = process.env.PORT || 3002
 // Trust proxy for rate limiting behind nginx
 app.set('trust proxy', 1)
 
-// Export prisma for use in routes
-const prisma = new PrismaClient()
-module.exports = { prisma }
-
 // Rate limiters
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -29,7 +25,7 @@ const generalLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false }
+  validate: false
 })
 
 const strictLimiter = rateLimit({
@@ -38,7 +34,7 @@ const strictLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false }
+  validate: false
 })
 
 const loginLimiter = rateLimit({
@@ -47,7 +43,7 @@ const loginLimiter = rateLimit({
   message: { error: 'Too many login attempts, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false }
+  validate: false
 })
 
 // Security middleware

@@ -1,5 +1,5 @@
 const express = require('express')
-const { prisma } = require('../index')
+const { prisma } = require('../prisma')
 const { checkAutoBan } = require('./blocklist')
 
 const router = express.Router()

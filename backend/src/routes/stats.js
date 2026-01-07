@@ -1,5 +1,5 @@
 const express = require('express')
-const { prisma } = require('../index')
+const { prisma } = require('../prisma')
 
 const router = express.Router()
 
